@@ -99,14 +99,15 @@
 								}),
 							success: function (res) {
 								var e = res["entities"];
+								var start = "";
 								speak_single_sentence();
 								function speak_single_sentence() {
 									let sentence = "";
 									if (e.length === 0) return;
 									let word = e.shift();
-									if (i != 0) sentence += "and "
-									sentence = sentence + "There is a " + word["name"];
+									sentence = start + sentence + "There is a " + word["name"];
 									responsiveVoice.speak(sentence, "UK English Male", { onend: speak_single_sentence });
+									start = " and ";
 								}
 							},
 							error: function (res) {
