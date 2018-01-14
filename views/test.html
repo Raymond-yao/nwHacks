@@ -34,10 +34,15 @@
 		$(document).ready(function () {
 			// Grab elements, create settings, etc.
 			var video = document.getElementById('video');
+            video.setAttribute('autoplay', '');
+            video.setAttribute('muted', '');
+            video.setAttribute('playsinline', '');
+
 			const constraints = {
-				advanced: [{
-					facingMode: "environment"
-				}]
+                audio: false,
+                advanced: [{
+                    facingMode: {exact:'environment'}
+                }]
 			};
 			// Get access to the camera!
 			if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -45,22 +50,22 @@
 				navigator.mediaDevices.getUserMedia({
 					video: constraints
 				}).then(function (stream) {
-					video.src = window.URL.createObjectURL(stream);
+					video.srcObject = stream;
 					video.play();
 				});
 			} else if (navigator.getUserMedia) { // Standard
 				navigator.getUserMedia({ video: constraints }, function (stream) {
-					video.src = stream;
+					video.srcObject = stream;
 					video.play();
 				}, errBack);
 			} else if (navigator.webkitGetUserMedia) { // WebKit-prefixed
 				navigator.webkitGetUserMedia({ video: constraints }, function (stream) {
-					video.src = window.webkitURL.createObjectURL(stream);
+					video.srcObject = stream;
 					video.play();
 				}, errBack);
 			} else if (navigator.mozGetUserMedia) { // Mozilla-prefixed
 				navigator.mozGetUserMedia({ video: constraints }, function (stream) {
-					video.src = window.URL.createObjectURL(stream);
+					video.srcObject = stream;
 					video.play();
 				}, errBack);
 			}
