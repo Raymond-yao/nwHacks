@@ -1,31 +1,39 @@
 #!/usr/bin/env node
-
 /**
  * Module dependencies.
  */
 
 var app = require('../app');
 var debug = require('debug')('nw:server');
-var http = require('http');
+var https = require('https');
+var fs = require('fs');
 
 /**
  * Get port from environment and store in Express.
  */
+var options = {
+    key: fs.readFileSync( './../localhost.key' ),
+    cert: fs.readFileSync( './../localhost.cert' ),
+    requestCert: false,
+    rejectUnauthorized: false
+};
 
-var port = normalizePort(process.env.PORT || '3000');
+var port = normalizePort('3000');
 app.set('port', port);
 
 /**
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
+var server = https.createServer(options, app);
 
 /**
  * Listen on provided port, on all network interfaces.
  */
 
-server.listen(port);
+server.listen( port, function () {
+    console.log( 'Express server listening on port ' + server.address().port );
+} );
 server.on('error', onError);
 server.on('listening', onListening);
 
