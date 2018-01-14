@@ -2,179 +2,205 @@
 <html>
 
 <head>
-	<title></title>
+    <title></title>
+    <style>
+        /* #video, */
+
+        /* #canvas {
+            display: none;
+        } */
+
+        #snap {
+            width: 100%;
+            height: 700px;
+            font-size: 60px;
+            background-color: blue;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
-	<script type="text/javascript"></script>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-	<script src='https://code.responsivevoice.org/responsivevoice.js'></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src='https://code.responsivevoice.org/responsivevoice.js'></script>
 
+    <button id="snap">Snap Photo</button>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
 
-	<video id="video" width="640" height="480" autoplay></video>
-	<button id="snap">Snap Photo</button>
-	<canvas id="canvas" width="640" height="480"></canvas>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            // Grab elements, create settings, etc.
+            var video = document.getElementById('video');
+            const constraints = {
+                advanced: [{
+                    facingMode: "environment"
+                }]
+            };
+            // Get access to the camera!
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                // Not adding `{ audio: true }` since we only want video now
+                navigator.mediaDevices.getUserMedia({
+                    video: constraints
+                }).then(function (stream) {
+                    video.src = window.URL.createObjectURL(stream);
+                    video.play();
+                });
+            } else if (navigator.getUserMedia) { // Standard
+                navigator.getUserMedia({video: true}, function (stream) {
+                    video.src = stream;
+                    video.play();
+                }, errBack);
+            } else if (navigator.webkitGetUserMedia) { // WebKit-prefixed
+                navigator.webkitGetUserMedia({video: constraints}, function (stream) {
+                    video.src = window.webkitURL.createObjectURL(stream);
+                    video.play();
+                }, errBack);
+            } else if (navigator.mozGetUserMedia) { // Mozilla-prefixed
+                navigator.mozGetUserMedia({video: constraints}, function (stream) {
+                    video.src = window.URL.createObjectURL(stream);
+                    video.play();
+                }, errBack);
+            }
 
-	<script type="text/javascript">
-		$(document).ready(function () {
-			// Grab elements, create settings, etc.
-			var video = document.getElementById('video');
+            // Elements for taking the snapshot
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            var video = document.getElementById('video');
 
-			// Get access to the camera!
-			if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-				// Not adding `{ audio: true }` since we only want video now
-				navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
-					video.src = window.URL.createObjectURL(stream);
-					video.play();
-				});
-			} else if (navigator.getUserMedia) { // Standard
-				navigator.getUserMedia({ video: true }, function (stream) {
-					video.src = stream;
-					video.play();
-				}, errBack);
-			} else if (navigator.webkitGetUserMedia) { // WebKit-prefixed
-				navigator.webkitGetUserMedia({ video: true }, function (stream) {
-					video.src = window.webkitURL.createObjectURL(stream);
-					video.play();
-				}, errBack);
-			} else if (navigator.mozGetUserMedia) { // Mozilla-prefixed
-				navigator.mozGetUserMedia({ video: true }, function (stream) {
-					video.src = window.URL.createObjectURL(stream);
-					video.play();
-				}, errBack);
-			}
+            // Trigger photo take
+            document.getElementById("snap").addEventListener("click", function () {
+                context.drawImage(video, 0, 0, 640, 400);
+                upload_and_read(canvas.toDataURL("image/jpeg").substring(23));
+            });
 
-			// Elements for taking the snapshot
-			var canvas = document.getElementById('canvas');
-			var context = canvas.getContext('2d');
-			var video = document.getElementById('video');
+            function upload_and_read(content) {
+                console.log(content);
+                responsiveVoice.speak("Loading, please be patient", "UK English Male", {
+                    onend: function () {
+                        $.ajax({
+                            type: "POST",
+                            url: "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
+                            contentType: "application/json",
+                            dataType: 'json',
+                            data: JSON.stringify(
+                                {
+                                    "requests": [
+                                        {
+                                            "image": {
+                                                "content": content
+                                            },
+                                            "features": [
+                                                {
+                                                    "type": "LABEL_DETECTION"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }),
+                            success: function (res) {
+                                var objects = res["responses"][0]["labelAnnotations"];
+                                var word = "";
+                                for (var i = 0; i < objects.length; i++) {
+                                    word = word + objects[i]["description"] + ",";
+                                }
+                                $.ajax({
+                                    type: "POST",
+                                    url: "https://language.googleapis.com/v1/documents:analyzeEntities?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
+                                    contentType: "application/json",
+                                    dataType: 'json',
+                                    data: JSON.stringify(
+                                        {
+                                            document:
+                                                {
+                                                    type: "PLAIN_TEXT",
+                                                    content: word
+                                                },
+                                            encodingType: 'UTF8'
+                                        }),
+                                    success: function (res) {
+                                        var e = res["entities"];
+                                        var start = "";
+                                        speak_single_sentence();
 
-			// Trigger photo take
-			document.getElementById("snap").addEventListener("click", function () {
-				context.drawImage(video, 0, 0, 640, 400);
-				upload_and_read(canvas.toDataURL("image/jpeg").substring(23));
-			});
-
-			function upload_and_read(content) {
-				console.log(content);
-				$.ajax({
-					type: "POST",
-					url: "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
-					contentType: "application/json",
-					dataType: 'json',
-					data: JSON.stringify(
-						{
-							"requests": [
-								{
-									"image": {
-										"content": content
-									},
-									"features": [
-										{
-											"type": "LABEL_DETECTION"
-										}
-									]
-								}
-							]
-						}),
-					success: function (res) {
-						var objects = res["responses"][0]["labelAnnotations"];
-						var word = "";
-						var wordConfidence = {};
-						for (var i = 0; i < objects.length; i++) {
-							word = word + objects[i]["description"] + ",";
-							wordConfidence[word] = objects[i]["score"];
-						}
-						$.ajax({
-							type: "POST",
-							url: "https://language.googleapis.com/v1/documents:analyzeEntities?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
-							contentType: "application/json",
-							dataType: 'json',
-							data: JSON.stringify(
-								{
-									document:
-										{
-											type: "PLAIN_TEXT",
-											content: word
-										},
-									encodingType: 'UTF8'
-								}),
-							success: function (res) {
-								var e = res["entities"];
-								speak_single_sentence();
-								function speak_single_sentence() {
-									let sentence = "";
-									if (e.length === 0) return;
-									let word = e.shift();
-									if (i != 0) sentence += "and ";
-									if (word["type"] === "OTHER")
-									{
-									    var score = wordConfidence[word["name"]];
-									    if (score > 0.9){
-                                            sentence += "The picture has " + word["name"];
-										}
-										else if (score > 0.7){
-                                            sentence += "The picture should have " + word["name"];
-										}
-                                        else if (score > 0.5){
-                                            sentence += "The picture might have " + word["name"];
+                                        function speak_single_sentence() {
+                                            let sentence = "";
+                                            if (e.length === 0) return;
+                                            let word = e.shift();
+                                            sentence = start + sentence;
+                                            if (word["type"] === "OTHER")
+                                        {
+                                            var score = wordConfidence[word["name"]];
+                                            if (score > 0.9){
+                                                                  sentence += "The picture has " + word["name"];
+                                          }
+                                          else if (score > 0.7){
+                                                                  sentence += "The picture should have " + word["name"];
+                                          }
+                                                              else if (score > 0.5){
+                                                                  sentence += "The picture might have " + word["name"];
+                                                              }
+                                                              else {
+                                                                  sentence += "The picture could have " + word["name"]
+                                          }
                                         }
-                                        else {
-                                            sentence += "The picture could have " + word["name"]
-										}
-									}
-									else if (word["type"] === "PERSON"){
-                                        var score = wordConfidence[word["name"]];
-                                        if (score > 0.9){
-                                            sentence += "There is a " + word["name"];
+                                        else if (word["type"] === "PERSON"){
+                                                              var score = wordConfidence[word["name"]];
+                                                              if (score > 0.9){
+                                                                  sentence += "There is a " + word["name"];
+                                                              }
+                                                              else if (score > 0.7){
+                                                                  sentence += "There should be a " + word["name"];
+                                                              }
+                                                              else if (score > 0.5){
+                                                                  sentence += "There might be a " + word["name"];
+                                                              }
+                                                              else {
+                                                                  sentence += "There could be a  " + word["name"];
+                                                              }
                                         }
-                                        else if (score > 0.7){
-                                            sentence += "There should be a " + word["name"];
+                                        else if (word["type"] === "LOCATION"){
+                                          if (score > 0.85){
+                                              sentence += "at " + word["name"];
+                                          }
                                         }
-                                        else if (score > 0.5){
-                                            sentence += "There might be a " + word["name"];
+                                        else if (word["type"] === "ORGANIZATION"){
+                                            if (score > 0.85) {
+                                                sentence += "in " + word["name"];
+                                          }
                                         }
-                                        else {
-                                            sentence += "There could be a  " + word["name"];
+                                                          else if (word["type"] === "WORK_OF_ART"){
+                                                              var score = wordConfidence[word["name"]];
+                                                              if (score > 0.9){
+                                                                  sentence += "playing " + word["name"];
+                                                              }
+                                                              else if (score > 0.7){
+                                                                  sentence += "should play " + word["name"];
+                                                              }
+                                                              else if (score > 0.5){
+                                                                  sentence += "might play " + word["name"];
+                                                              }
+                                                              else {
+                                                                  sentence += "could play " + word["name"];
+                                                              }
+                                                          }
+                                        responsiveVoice.speak(sentence, "UK English Male", { onend: speak_single_sentence });
+                                       }
+                                            start = " and ";
                                         }
-									}
-									else if (word["type"] === "LOCATION"){
-										if (score > 0.85){
-										    sentence += "at " + word["name"];
-										}
-									}
-									else if (word["type"] === "ORGANIZATION"){
-									    if (score > 0.85) {
-									        sentence += "in " + word["name"];
-										}
-									}
-                                    else if (word["type"] === "WORK_OF_ART"){
-                                        var score = wordConfidence[word["name"]];
-                                        if (score > 0.9){
-                                            sentence += "playing " + word["name"];
-                                        }
-                                        else if (score > 0.7){
-                                            sentence += "should play " + word["name"];
-                                        }
-                                        else if (score > 0.5){
-                                            sentence += "might play " + word["name"];
-                                        }
-                                        else {
-                                            sentence += "could play " + word["name"];
-                                        }
+                                    },
+                                    error: function (res) {
                                     }
-									responsiveVoice.speak(sentence, "UK English Male", { onend: speak_single_sentence });
-								}
-							},
-							error: function (res) {
-							}
-						});
-					}
-				});
-			}
-
-		});
-	</script>
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>
