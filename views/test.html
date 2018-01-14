@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+	<script type="text/javascript"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	<script src='https://code.responsivevoice.org/responsivevoice.js'></script>
+	<input class="try" type="button" name="haha" value="TRY">
+	<script type="text/javascript">
+		$(document).ready(function(){
+			$('input.try').on("click", function() {
+				responsiveVoice.speak("There are two things in the picture. One is a tree and the other is an apple");
+			});
+
+			$.ajax({
+				type        : "POST",
+				url         : "https://language.googleapis.com/v1/documents:analyzeEntities?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
+				contentType : "application/json",
+				dataType    : 'json',
+				data        : JSON.stringify(
+					{ document:
+						{  
+							type: "PLAIN_TEXT",
+							content: 'President Obama is speaking at the White House'
+						},
+						encodingType: 'UTF8'
+					}),
+				success     : function(res){         
+					var entities = res["entities"];
+					var sentence = "";
+					for (var i =0; i < entities.length; i++) {
+						console.log(entities[i]["name"]);
+						sentence = sentence + "There is " + entities[i]["name"] + " and ";
+					}
+					responsiveVoice.speak(sentence);
+
+				},
+				error       : function(res){
+
+				}
+			});
+
+		});
+	</script>
+</body>
+</html>
