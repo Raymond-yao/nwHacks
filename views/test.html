@@ -7,42 +7,112 @@
 	<script type="text/javascript"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 	<script src='https://code.responsivevoice.org/responsivevoice.js'></script>
-	<input class="try" type="button" name="haha" value="TRY">
+
+
+	<video id="video" width="640" height="480" autoplay></video>
+	<button id="snap">Snap Photo</button>
+	<canvas id="canvas" width="640" height="480"></canvas>
+
 	<script type="text/javascript">
 		$(document).ready(function(){
-			$('input.try').on("click", function() {
-				responsiveVoice.speak("There are two things in the picture. One is a tree and the other is an apple");
-			});
+            // Grab elements, create settings, etc.
+            var video = document.getElementById('video');
 
-			$.ajax({
-				type        : "POST",
-				url         : "https://language.googleapis.com/v1/documents:analyzeEntities?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
-				contentType : "application/json",
-				dataType    : 'json',
-				data        : JSON.stringify(
-					{ document:
-						{  
-							type: "PLAIN_TEXT",
-							content: 'President Obama is speaking at the White House'
-						},
-						encodingType: 'UTF8'
-					}),
-				success     : function(res){         
-					var entities = res["entities"];
-					var sentence = "";
-					for (var i =0; i < entities.length; i++) {
-						console.log(entities[i]["name"]);
-						sentence = sentence + "There is " + entities[i]["name"] + " and ";
-					}
-					responsiveVoice.speak(sentence);
+            // Get access to the camera!
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                // Not adding `{ audio: true }` since we only want video now
+                navigator.mediaDevices.getUserMedia({ video: true }).then(function (stream) {
+                	video.src = window.URL.createObjectURL(stream);
+                	video.play();
+                });
+            } else if (navigator.getUserMedia) { // Standard
+            	navigator.getUserMedia({ video: true }, function (stream) {
+            		video.src = stream;
+            		video.play();
+            	}, errBack);
+            } else if (navigator.webkitGetUserMedia) { // WebKit-prefixed
+            	navigator.webkitGetUserMedia({ video: true }, function (stream) {
+            		video.src = window.webkitURL.createObjectURL(stream);
+            		video.play();
+            	}, errBack);
+            } else if (navigator.mozGetUserMedia) { // Mozilla-prefixed
+            	navigator.mozGetUserMedia({ video: true }, function (stream) {
+            		video.src = window.URL.createObjectURL(stream);
+            		video.play();
+            	}, errBack);
+            }
 
-				},
-				error       : function(res){
+            // Elements for taking the snapshot
+            var canvas = document.getElementById('canvas');
+            var context = canvas.getContext('2d');
+            var video = document.getElementById('video');
 
-				}
-			});
+            // Trigger photo take
+            document.getElementById("snap").addEventListener("click", function () {
+            	context.drawImage(video,0,0,640,400);
+            	upload_and_read(canvas.toDataURL("image/jpeg").substring(23));
+            });
 
-		});
-	</script>
+            function upload_and_read(content) {
+            	console.log(content);
+            	$.ajax({
+            		type 		: "POST",
+            		url			: "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
+            		contentType	: "application/json",
+            		dataType 	: 'json',
+            		data 		: JSON.stringify(
+            			{	"requests": [
+            			{
+            				"image": {
+            					"content": content
+            				},
+            				"features": [
+            				{
+            					"type": "LABEL_DETECTION"
+            				}
+            				]
+            			}
+            			]
+            		}),
+            		success	: function(res){
+            			var objects = res["responses"][0]["labelAnnotations"];
+            			var word = "";
+            			for (var i = 0; i< objects.length; i++) {
+            				word = word + objects[i]["description"] + ",";
+            			}
+            			$.ajax({
+            				type        : "POST",
+            				url         : "https://language.googleapis.com/v1/documents:analyzeEntities?key=AIzaSyBrlBUB3kMBFTB73hcIAeQmLu1xT1sLNGA",
+            				contentType : "application/json",
+            				dataType    : 'json',
+            				data        : JSON.stringify(
+            					{ document:
+            						{  
+            							type: "PLAIN_TEXT",
+            							content: word
+            						},
+            						encodingType: 'UTF8'
+            					}),
+            				success     : function(res){         
+            					var entities = res["entities"];
+
+            					for (var i =0; i < entities.length; i++) {
+            						var sentence = "";
+            						if (i != 0) sentence += "and "
+            							sentence = sentence + "There is a " + entities[i]["name"];
+            						responsiveVoice.speak(sentence);
+            					}
+
+
+            				},
+            				error       : function(res){
+
+            				}
+            			});
+            		}
+            	});
+            }	
+        });
+    </script>
 </body>
 </html>
